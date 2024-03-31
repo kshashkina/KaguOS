@@ -339,10 +339,9 @@ FUNC:system_cut
 
     LABEL:system_cut_path_absolute
         call_func file_open ${GLOBAL_ARG2_ADDRESS}
-          *GLOBAL_DISPLAY_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
-          display_success
         if *GLOBAL_OUTPUT_ADDRESS=="-1"
             *GLOBAL_DISPLAY_ADDRESS="No such file"
+            display_error
             return "1"
         fi
             *VAR_system_cut_file_descriptor_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
