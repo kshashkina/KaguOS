@@ -87,6 +87,13 @@ if *VAR_original_input_cmd_ADDRESS=="touch"
     jump_to ${LABEL_kernel_loop_start}
 fi
 
+# check for cut command:
+if *VAR_original_input_cmd_ADDRESS=="cut"
+    call_func system_cut ${VAR_original_input_arg1_ADDRESS} ${VAR_original_input_arg2_ADDRESS}
+    jump_to ${LABEL_kernel_loop_start}
+fi
+
+
 if *VAR_original_input_cmd_ADDRESS=="ls"
     call_func system_ls ${VAR_original_input_arg1_ADDRESS} ${VAR_original_input_arg2_ADDRESS}
     jump_to ${LABEL_kernel_loop_start}
@@ -306,6 +313,42 @@ FUNC:system_ls
 
     println(*VAR_system_ls_res_ADDRESS)
     return "0"
+
+FUNC:system_cut
+    var system_cut_temp_var
+    var system_cut_file_descriptor
+
+    if *GLOBAL_ARG1_ADDRESS==""
+        *GLOBAL_DISPLAY_ADDRESS="Invalid arguments. Command: cut <column> <filename>"
+        display_error
+        return "1"
+    fi
+
+    if *GLOBAL_ARG2_ADDRESS==""
+        *GLOBAL_DISPLAY_ADDRESS="Invalid arguments. Command: cut <column> <filename>"
+        display_error
+        return "1"
+    fi
+
+
+    *VAR_system_cut_temp_var_ADDRESS="/"
+    cpu_execute "${CPU_STARTS_WITH_CMD}" ${GLOBAL_ARG2_ADDRESS} ${VAR_system_cut_temp_var_ADDRESS}
+    jump_if ${LABEL_system_cut_path_absolute}
+    cpu_execute "${CPU_CONCAT_CMD}" ${GLOBAL_WORKING_DIR_ADDRESS} ${GLOBAL_ARG2_ADDRESS}
+    *GLOBAL_ARG2_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    LABEL:system_cut_path_absolute
+        call_func file_open ${GLOBAL_ARG2_ADDRESS}
+          *GLOBAL_DISPLAY_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+          display_success
+        if *GLOBAL_OUTPUT_ADDRESS=="-1"
+            *GLOBAL_DISPLAY_ADDRESS="No such file"
+            return "1"
+        fi
+            *VAR_system_cut_file_descriptor_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+            call_func cut_column ${GLOBAL_ARG1_ADDRESS} ${VAR_system_cut_file_descriptor_ADDRESS}
+        fi
+        return "0"
 
 ##########################################
 # KERNEL_END                             #

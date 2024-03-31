@@ -559,3 +559,29 @@ FUNC:system_permission_int_to_string
         return "rwx"
     fi
     return "-1"
+FUNC:cut_column
+    var column_number
+    var file_descriptor
+    var cut_file_info
+
+    *VAR_column_number_ADDRESS=*GLOBAL_ARG1_ADDRESS
+    call_func file_info ${VAR_system_cut_file_descriptor_ADDRESS}
+    *VAR_cut_file_info_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    cpu_execute "${CPU_EQUAL_CMD}" ${VAR_cut_file_info_ADDRESS} "-1"
+    jump_if ${LABEL_extraction_failed}
+
+    LABEL:line_read_loop
+        call_func file_read ${VAR_system_cut_file_descriptor_ADDRESS}
+        if *GLOBAL_OUTPUT_ADDRESS=="-1"
+            jump_to ${LABEL_cut_end}
+        fi
+        LABEL:extract_column
+            cpu_execute "${CPU_GET_COLUMN_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_column_number_ADDRESS}
+            *GLOBAL_DISPLAY_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+            display_success
+        jump_to ${LABEL_line_read_loop}
+
+    LABEL:cut_end
+      return "0"
+    LABEL:extraction_failed
+      return "-1"
