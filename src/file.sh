@@ -599,3 +599,33 @@ FUNC:cut_column
       return "0"
     LABEL:extraction_failed
       return "-1"
+FUNC:change_ownership
+    var change_file_descriptor
+    var change_temp_var
+    var change_file_info
+    var change_disk
+    var change_file_header_line
+    var change_file_header
+    var change_user
+
+    VAR_change_user=${GLOBAL_ARG1_ADDRESS}
+
+    call_func file_info ${VAR_change_file_descriptor_ADDRESS}
+    *VAR_change_file_info_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    call_func file_close ${VAR_change_file_descriptor_ADDRESS}
+
+    *VAR_change_temp_var_ADDRESS="2"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_change_file_info_ADDRESS} ${VAR_change_temp_var_ADDRESS}
+    *VAR_system_change_disk_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    *VAR_change_temp_var_ADDRESS="6"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_change_file_info_ADDRESS} ${VAR_change_temp_var_ADDRESS}
+    *VAR_change_file_header_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    read_device_buffer ${VAR_system_change_disk_ADDRESS} ${VAR_change_file_header_line_ADDRESS}
+    *VAR_change_file_header_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+   *VAR_change_temp_var_ADDRESS="6"
+   cpu_execute "${CPU_REPLACE_COLUMN_TEXT_CMD}" ${VAR_change_file_header_ADDRESS} ${VAR_change_temp_var_ADDRESS} ${VAR_change_user}
+   write_device_buffer ${VAR_system_change_disk_ADDRESS} ${VAR_change_file_header_line_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
+   return "0"
