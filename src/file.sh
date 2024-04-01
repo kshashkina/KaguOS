@@ -610,22 +610,21 @@ FUNC:change_ownership
 
     VAR_change_user=${GLOBAL_ARG1_ADDRESS}
 
-    call_func file_info ${VAR_change_file_descriptor_ADDRESS}
+    call_func file_info ${VAR_system_change_file_descriptor_ADDRESS}
     *VAR_change_file_info_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
-    call_func file_close ${VAR_change_file_descriptor_ADDRESS}
 
     *VAR_change_temp_var_ADDRESS="2"
     cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_change_file_info_ADDRESS} ${VAR_change_temp_var_ADDRESS}
-    *VAR_system_change_disk_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    *VAR_change_disk_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
     *VAR_change_temp_var_ADDRESS="6"
     cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_change_file_info_ADDRESS} ${VAR_change_temp_var_ADDRESS}
     *VAR_change_file_header_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
-    read_device_buffer ${VAR_system_change_disk_ADDRESS} ${VAR_change_file_header_line_ADDRESS}
+    read_device_buffer ${VAR_change_disk_ADDRESS} ${VAR_change_file_header_line_ADDRESS}
     *VAR_change_file_header_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
    *VAR_change_temp_var_ADDRESS="6"
    cpu_execute "${CPU_REPLACE_COLUMN_TEXT_CMD}" ${VAR_change_file_header_ADDRESS} ${VAR_change_temp_var_ADDRESS} ${VAR_change_user}
-   write_device_buffer ${VAR_system_change_disk_ADDRESS} ${VAR_change_file_header_line_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
+   write_device_buffer ${VAR_change_disk_ADDRESS} ${VAR_change_file_header_line_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
    return "0"
