@@ -607,11 +607,22 @@ FUNC:change_ownership
     var change_file_header_line
     var change_file_header
     var change_user
+    var change_group
 
-    VAR_change_user=${GLOBAL_ARG1_ADDRESS}
+    cpu_execute "${CPU_CONTAINS_CMD}" ${GLOBAL_ARG1_ADDRESS}
+    *GLOBAL_DISPLAY_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    if *GLOBAL_OUTPUT_ADDRESS="1"
+        cpu_execute "${CPU_SPLIT_GET_FIRST_PART_CMD}" ${GLOBAL_ARG1_ADDRESS}
+        *VAR_change_user_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+        cpu_execute "${CPU_SPLIT_GET_SECOND_PART_CMD}" ${GLOBAL_ARG1_ADDRESS}
+        *VAR_change_group_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    else
+        VAR_change_user=${GLOBAL_ARG1_ADDRESS}
+    fi
 
     call_func file_info ${VAR_system_change_file_descriptor_ADDRESS}
     *VAR_change_file_info_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    call_func file_close ${VAR_system_change_file_descriptor_ADDRESS}
 
     *VAR_change_temp_var_ADDRESS="2"
     cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_change_file_info_ADDRESS} ${VAR_change_temp_var_ADDRESS}
@@ -624,7 +635,14 @@ FUNC:change_ownership
     read_device_buffer ${VAR_change_disk_ADDRESS} ${VAR_change_file_header_line_ADDRESS}
     *VAR_change_file_header_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
-   *VAR_change_temp_var_ADDRESS="6"
-   cpu_execute "${CPU_REPLACE_COLUMN_TEXT_CMD}" ${VAR_change_file_header_ADDRESS} ${VAR_change_temp_var_ADDRESS} ${VAR_change_user}
-   write_device_buffer ${VAR_change_disk_ADDRESS} ${VAR_change_file_header_line_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
-   return "0"
+    if *VAR_change_user_ADDRESS!=""
+      *VAR_change_temp_var_ADDRESS="6"
+      cpu_execute "${CPU_REPLACE_COLUMN_TEXT_CMD}" ${VAR_change_file_header_ADDRESS} ${VAR_change_temp_var_ADDRESS} ${VAR_change_user_ADDRESS}
+      write_device_buffer ${VAR_change_disk_ADDRESS} ${VAR_change_file_header_line_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
+    fi
+    if *VAR_change_group_ADDRESS!=""
+      *VAR_change_temp_var_ADDRESS="7"
+      cpu_execute "${CPU_REPLACE_COLUMN_TEXT_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_change_temp_var_ADDRESS} ${VAR_change_group_ADDRESS}
+      write_device_buffer ${VAR_change_disk_ADDRESS} ${VAR_change_file_header_line_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
+    fi
+    return "0"
