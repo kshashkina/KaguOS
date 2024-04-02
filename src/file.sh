@@ -608,17 +608,19 @@ FUNC:change_ownership
     var change_file_header
     var change_user
     var change_group
+    var passed_line
+    var buffer_line
 
-    cpu_execute "${CPU_CONTAINS_CMD}" ${GLOBAL_ARG1_ADDRESS}
-    *GLOBAL_DISPLAY_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
-    if *GLOBAL_OUTPUT_ADDRESS="1"
-        cpu_execute "${CPU_SPLIT_GET_FIRST_PART_CMD}" ${GLOBAL_ARG1_ADDRESS}
-        *VAR_change_user_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
-        cpu_execute "${CPU_SPLIT_GET_SECOND_PART_CMD}" ${GLOBAL_ARG1_ADDRESS}
-        *VAR_change_group_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
-    else
-        VAR_change_user=${GLOBAL_ARG1_ADDRESS}
-    fi
+    *VAR_passed_line_ADDRESS=*GLOBAL_ARG1_ADDRESS
+    call_func check_contains_colon ${VAR_passed_line_ADDRESS}
+    *VAR_buffer_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    *VAR_change_temp_var_ADDRESS="2"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_buffer_line_ADDRESS} ${VAR_change_temp_var_ADDRESS}
+    *VAR_change_user_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    *VAR_change_temp_var_ADDRESS="3"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_buffer_line_ADDRESS} ${VAR_change_temp_var_ADDRESS}
+    *VAR_change_group_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
     call_func file_info ${VAR_system_change_file_descriptor_ADDRESS}
     *VAR_change_file_info_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
@@ -637,12 +639,38 @@ FUNC:change_ownership
 
     if *VAR_change_user_ADDRESS!=""
       *VAR_change_temp_var_ADDRESS="6"
-      cpu_execute "${CPU_REPLACE_COLUMN_TEXT_CMD}" ${VAR_change_file_header_ADDRESS} ${VAR_change_temp_var_ADDRESS} ${VAR_change_user_ADDRESS}
+      cpu_execute "${CPU_REPLACE_COLUMN_CMD}" ${VAR_change_file_header_ADDRESS} ${VAR_change_temp_var_ADDRESS} ${VAR_change_user_ADDRESS}
       write_device_buffer ${VAR_change_disk_ADDRESS} ${VAR_change_file_header_line_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
     fi
     if *VAR_change_group_ADDRESS!=""
       *VAR_change_temp_var_ADDRESS="7"
-      cpu_execute "${CPU_REPLACE_COLUMN_TEXT_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_change_temp_var_ADDRESS} ${VAR_change_group_ADDRESS}
+      cpu_execute "${CPU_REPLACE_COLUMN_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_change_temp_var_ADDRESS} ${VAR_change_group_ADDRESS}
       write_device_buffer ${VAR_change_disk_ADDRESS} ${VAR_change_file_header_line_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
     fi
     return "0"
+FUNC:check_contains_colon
+ var line
+ var part_one
+ var part_two
+ var temp_value_replace
+ var temp_value_get
+ var symbol
+
+ *VAR_line_ADDRESS=*VAR_passed_line_ADDRESS
+ i=1
+ LABEL:check_contains_loop
+    *VAR_symbol_ADDRESS="$(read_from_address "${VAR_line_ADDRESS}" | cut -c $i)"
+    if *VAR_symbol_ADDRESS==""
+        return "0 $(read_from_address "${VAR_line_ADDRESS}" "")"
+    fi
+    if *VAR_symbol_ADDRESS==":"
+        counter_1=$((i-1))
+        counter_2=$((i+1))
+        *VAR_part_one_ADDRESS="$(read_from_address "${VAR_line_ADDRESS}" | cut -c 1-$counter_1)"
+        *VAR_part_two_ADDRESS="$(read_from_address "${VAR_line_ADDRESS}" | cut -c $counter_2-)"
+        return "1 $(read_from_address "${VAR_part_one_ADDRESS}") $(read_from_address "${VAR_part_two_ADDRESS}")"
+    fi
+    ((i++))
+    jump_to ${LABEL_check_contains_loop}
+
+

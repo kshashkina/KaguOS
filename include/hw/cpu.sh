@@ -13,10 +13,6 @@ export CPU_CONCAT_CMD="concat"
 export CPU_CONCAT_SPACES_CMD="concat_spaces"
 export CPU_GET_COLUMN_CMD="get_column"
 export CPU_REPLACE_COLUMN_CMD="replace_column"
-export CPU_REPLACE_COLUMN_TEXT_CMD="replace_column_text"
-export CPU_CONTAINS_CMD="contains"
-export CPU_SPLIT_GET_FIRST_PART_CMD="get_first_after_split"
-export CPU_SPLIT_GET_SECOND_PART_CMD="get_second_after_split"
 export CPU_LESS_THAN_CMD="less_than"
 export CPU_LESS_THAN_EQUAL_CMD="less_than_equal"
 export CPU_STARTS_WITH_CMD="starts_with"
@@ -111,23 +107,7 @@ function cpu_execute {
             CPU_REGISTER_OUT=$(echo "${CPU_REGISTER1}" | awk -F' ' ' {print $'${CPU_REGISTER2}'}')
             ;;
         "${CPU_REPLACE_COLUMN_CMD}")
-            CPU_REGISTER_OUT=$(echo "${CPU_REGISTER1}" | awk -F' ' '{$'${CPU_REGISTER2}'='${CPU_REGISTER3}'}1' )
-            ;;
-        "${CPU_REPLACE_COLUMN_TEXT_CMD}")
             CPU_REGISTER_OUT=$(echo "${CPU_REGISTER1}" | awk -F' ' '{$'${CPU_REGISTER2}'="'${CPU_REGISTER3}'"}1' )
-            ;;
-        "${CPU_CONTAINS_CMD}")
-            if [[ "${CPU_REGISTER1}" == *":"* ]]; then
-                CPU_REGISTER_OUT="1"
-            else
-                CPU_REGISTER_OUT="0"
-            fi
-            ;;
-        "${CPU_SPLIT_GET_FIRST_PART_CMD}")
-            CPU_REGISTER_OUT=$(echo "${CPU_REGISTER1}" | awk -F':' '{print $1}')
-            ;;
-        "${CPU_SPLIT_GET_SECOND_PART_CMD}")
-            CPU_REGISTER_OUT=$(echo "${CPU_REGISTER1}" | awk -F':' '{print $2}')
             ;;
         "${CPU_STARTS_WITH_CMD}")
             if [[ "${CPU_REGISTER1}" == "${CPU_REGISTER2}"* ]]; then
