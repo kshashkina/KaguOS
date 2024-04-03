@@ -371,8 +371,8 @@ FUNC:system_change_ownership
     fi
 
 
-    *VAR_system_cut_temp_var_ADDRESS="/"
-    cpu_execute "${CPU_STARTS_WITH_CMD}" ${GLOBAL_ARG2_ADDRESS} ${VAR_system_cut_temp_var_ADDRESS}
+    *VAR_system_change_temp_var_ADDRESS="/"
+    cpu_execute "${CPU_STARTS_WITH_CMD}" ${GLOBAL_ARG2_ADDRESS} ${VAR_system_change_temp_var_ADDRESS}
     jump_if ${LABEL_system_change_path_absolute}
     cpu_execute "${CPU_CONCAT_CMD}" ${GLOBAL_WORKING_DIR_ADDRESS} ${GLOBAL_ARG2_ADDRESS}
     *GLOBAL_ARG2_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
