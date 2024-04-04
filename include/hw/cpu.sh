@@ -1,6 +1,6 @@
 # This file contains basic CPU commands together with cpu_execute function
 
-# CPU COMMAND #
+# CPU COMMANDS #
 export CPU_EQUAL_CMD="is_equal"
 export CPU_NOT_EQUAL_CMD="is_not_equal"
 export CPU_ADD_CMD="add"
@@ -18,6 +18,30 @@ export CPU_LESS_THAN_EQUAL_CMD="less_than_equal"
 export CPU_STARTS_WITH_CMD="starts_with"
 export CPU_ENCRYPT_CMD="encrypt"
 export CPU_DECRYPT_CMD="decrypt"
+
+# Pairwise Swap Function (a2)
+function pairwise_swap {
+    local INPUT=$1
+    local SWAPPED=""
+    local LEN=${#INPUT}
+
+    # Swap characters pairwise
+    for (( i=0; i < $LEN; i+=2 )); do
+        if (( i+1 < LEN )); then
+            SWAPPED="${SWAPPED}${INPUT:i+1:1}"
+        fi
+        SWAPPED="${SWAPPED}${INPUT:i:1}"
+    done
+
+    echo "$SWAPPED"
+}
+
+# Letter Swap Function (b3)
+function letter_swap {
+    local INPUT=$1
+    local SWAPPED=$(echo "$INPUT" | tr 'aouyeiAOUYEI' 'oayuieOAYUIE')
+    echo "$SWAPPED"
+}
 
 # CPU execution function
 
@@ -123,10 +147,14 @@ function cpu_execute {
             return 0
             ;;
         "${CPU_ENCRYPT_CMD}")
-            CPU_REGISTER_OUT="${CPU_REGISTER1}"
+            # Apply the transformations to encrypt
+            local PAIRWISE_SWAPPED=$(pairwise_swap "${CPU_REGISTER1}")
+            CPU_REGISTER_OUT=$(letter_swap "${PAIRWISE_SWAPPED}")
             ;;
         "${CPU_DECRYPT_CMD}")
-            CPU_REGISTER_OUT="${CPU_REGISTER1}"
+            # Apply the transformations in reverse to decrypt
+            local REVERSED_LETTERS=$(letter_swap "${CPU_REGISTER1}")
+            CPU_REGISTER_OUT=$(pairwise_swap "${REVERSED_LETTERS}")
             ;;
         *)
             exit_fatal "Unknown cpu instruction: ${CPU_REGISTER_CMD}"
