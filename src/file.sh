@@ -27,11 +27,11 @@ FUNC:file_found_disk
 
         *VAR_file_found_disk_temp_var_ADDRESS="2"
         cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_file_found_disk_cur_line_ADDRESS} ${VAR_file_found_disk_temp_var_ADDRESS}
-        *VAR_file_found_disk_name_ADDRESS=*GLOBAL_OUTPUT_ADDRESS 
+        *VAR_file_found_disk_name_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
         *VAR_file_found_disk_temp_var_ADDRESS="3"
         cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_file_found_disk_cur_line_ADDRESS} ${VAR_file_found_disk_temp_var_ADDRESS}
-        *VAR_file_found_disk_partition_ADDRESS=*GLOBAL_OUTPUT_ADDRESS      
+        *VAR_file_found_disk_partition_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
         *VAR_file_found_disk_temp_var_ADDRESS="1"
         cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_file_found_disk_cur_line_ADDRESS} ${VAR_file_found_disk_temp_var_ADDRESS}
@@ -538,3 +538,116 @@ FUNC:file_create
 
     LABEL:file_create_error
         return "-1"
+
+# Delete file and update free range
+# INPUT: file descriptor
+FUNC:file_remove
+    var remove_file_descriptor
+    var remove_temp_var
+    var remove_file_info
+    var remove_disk
+    var remove_file_header_line
+    var remove_file_header
+    var counter
+    var remove_file_partition_line
+    var remove_file_partition_line_on_disk
+    var remove_file_partition
+
+    # gaining file info
+    call_func file_info ${VAR_system_remove_file_descriptor_ADDRESS}
+    *VAR_remove_file_info_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    call_func file_close ${VAR_system_remove_file_descriptor_ADDRESS}
+
+    # disk info
+    *VAR_remove_temp_var_ADDRESS="2"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_remove_file_info_ADDRESS} ${VAR_remove_temp_var_ADDRESS}
+    *VAR_remove_disk_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    # partition
+    *VAR_remove_temp_var_ADDRESS="4"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_remove_file_info_ADDRESS} ${VAR_remove_temp_var_ADDRESS}
+    *VAR_remove_file_partition_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    # calling func to gain specific partition line
+    call_func get_partition_line ${VAR_remove_file_partition_line_ADDRESS}
+    *VAR_remove_file_partition_line_on_disk_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    read_device_buffer ${VAR_remove_disk_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
+    *VAR_remove_file_partition_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    # file header location
+    *VAR_remove_temp_var_ADDRESS="6"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_remove_file_info_ADDRESS} ${VAR_remove_temp_var_ADDRESS}
+    *VAR_remove_file_header_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    # file header line
+    read_device_buffer ${VAR_remove_disk_ADDRESS} ${VAR_remove_file_header_line_ADDRESS}
+    *VAR_remove_file_header_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    # loop to delete everything from header except of lines that are taken by this file
+    *VAR_counter_ADDRESS="0"
+    LABEL:remove_header_loop
+      cpu_execute "${CPU_INCREMENT_CMD}" ${VAR_counter_ADDRESS}
+      *VAR_counter_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+      if *VAR_counter_ADDRESS!="8"
+        *VAR_remove_temp_var_ADDRESS="1"
+        cpu_execute "${CPU_REMOVE_COLUMN_CMD}" ${VAR_remove_file_header_ADDRESS} ${VAR_remove_temp_var_ADDRESS}
+        write_device_buffer ${VAR_remove_disk_ADDRESS} ${VAR_remove_file_header_line_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
+        *VAR_remove_file_header_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+        jump_to ${LABEL_remove_header_loop}
+      fi
+
+    # extracting taken space to the separate variable
+    var free_space_from_file_header
+    var free_space_from_file_temp_header
+    var header_is_empty_check
+    LABEL:get_free_space_from_file_header_loop
+      # always extracting the first column and saving result in the temporary variable
+      *VAR_remove_temp_var_ADDRESS="1"
+      cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_remove_file_header_ADDRESS} ${VAR_remove_temp_var_ADDRESS}
+      *VAR_free_space_from_file_temp_header_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+      # if nothing was extracted - we finished the process and can jump to the next step
+      if *VAR_free_space_from_file_temp_header_ADDRESS==""
+         jump_to ${LABEL_update_partition_line}
+      fi
+
+    # if our temporary variable is empty - it is the first iteration -> remove value from header and set free space as temp variable
+    if *VAR_free_space_from_file_header_ADDRESS=="0"
+       cpu_execute "${CPU_REMOVE_COLUMN_CMD}" ${VAR_remove_file_header_ADDRESS} ${VAR_remove_temp_var_ADDRESS}
+       write_device_buffer ${VAR_remove_disk_ADDRESS} ${VAR_remove_file_header_line_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
+       *VAR_free_space_from_file_header_ADDRESS=*VAR_free_space_from_file_temp_header_ADDRESS
+       *VAR_remove_file_header_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+       jump_to ${LABEL_get_free_space_from_file_header_loop}
+    else
+       # if we already have something in free space buffer -> concat buffer with temp variable and update header
+       cpu_execute "${CPU_CONCAT_SPACES_CMD}" ${VAR_free_space_from_file_header_ADDRESS} ${VAR_free_space_from_file_temp_header_ADDRESS}
+       *VAR_free_space_from_file_header_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+       cpu_execute "${CPU_REMOVE_COLUMN_CMD}" ${VAR_remove_file_header_ADDRESS} ${VAR_remove_temp_var_ADDRESS}
+       write_device_buffer ${VAR_remove_disk_ADDRESS} ${VAR_remove_file_header_line_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
+       *VAR_remove_file_header_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+       jump_to ${LABEL_get_free_space_from_file_header_loop}
+    fi
+
+
+    # adding free space that was extracted from file header to partition header
+    LABEL:update_partition_line
+    cpu_execute "${CPU_CONCAT_SPACES_CMD}" ${VAR_remove_file_partition_ADDRESS} ${VAR_free_space_from_file_header_ADDRESS}
+    *VAR_remove_file_partition_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    write_device_buffer ${VAR_remove_disk_ADDRESS} ${VAR_remove_file_partition_line_on_disk_ADDRESS} ${VAR_remove_file_partition_ADDRESS}
+    return "0"
+
+FUNC:get_partition_line
+  var partition_name
+  var partition_name_value
+
+  *VAR_partition_name_ADDRESS=*VAR_remove_file_partition_line_ADDRESS
+  *VAR_partition_name_value_ADDRESS="$(read_from_address "${VAR_partition_name_ADDRESS}" | cut -c 5)"
+  if *VAR_partition_name_value_ADDRESS=="1"
+    return "2"
+  if *VAR_partition_name_value_ADDRESS=="2"
+    return "3"
+  if *VAR_partition_name_value_ADDRESS=="3"
+    return "4"
+  fi

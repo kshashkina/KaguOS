@@ -87,6 +87,12 @@ if *VAR_original_input_cmd_ADDRESS=="touch"
     jump_to ${LABEL_kernel_loop_start}
 fi
 
+# check for cat command:
+if *VAR_original_input_cmd_ADDRESS=="rm"
+    call_func system_remove ${VAR_original_input_arg1_ADDRESS}
+    jump_to ${LABEL_kernel_loop_start}
+fi
+
 # check for pwd command:
 if *VAR_original_input_cmd_ADDRESS=="pwd"
     call_func system_pwd
@@ -204,6 +210,35 @@ FUNC:system_touch
     *GLOBAL_DISPLAY_ADDRESS="Error creating file"
     display_error
     return "1"
+
+FUNC:system_remove
+    var system_remove_temp_var
+    var system_remove_file_descriptor
+
+    if *GLOBAL_ARG1_ADDRESS==""
+        *GLOBAL_DISPLAY_ADDRESS="Invalid arguments. Command: rm <filename>"
+        display_error
+        return "1"
+    fi
+
+    *VAR_system_remove_temp_var_ADDRESS="/"
+    cpu_execute "${CPU_STARTS_WITH_CMD}" ${GLOBAL_ARG1_ADDRESS} ${VAR_system_remove_temp_var_ADDRESS}
+    jump_if ${LABEL_system_remove_path_absolute}
+    cpu_execute "${CPU_CONCAT_CMD}" ${GLOBAL_WORKING_DIR_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
+    *GLOBAL_ARG1_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    LABEL:system_change_path_absolute
+        call_func file_open ${GLOBAL_ARG1_ADDRESS}
+        if *GLOBAL_OUTPUT_ADDRESS=="-1"
+            *GLOBAL_DISPLAY_ADDRESS="No such file"
+            display_error
+            return "1"
+        fi
+            *VAR_system_remove_file_descriptor_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+            call_func file_remove ${VAR_system_remove_file_descriptor_ADDRESS}
+        fi
+        return "0"
+
 ##########################################
 # KERNEL_END                             #
 ##########################################
