@@ -150,13 +150,17 @@ do
         eval $(read_from_address ${NEXT_CMD}) || exit_fatal "Incorrect instruction"
         dump_RAM_to_file
     else
-        write_to_address ${GLOBAL_SCHED_COUNTER_ADDRESS} "$(($SCHED_COUNTER - 1))"
+        if [ "${GLOBAL_SCHED_COUNTER_ADDRESS}" = "100" ]; then
+            write_to_address ${GLOBAL_SCHED_COUNTER_ADDRESS} ${SCHED_COUNTER}
+        else
+            write_to_address ${GLOBAL_SCHED_COUNTER_ADDRESS} "$(($SCHED_COUNTER - 1))"
+        fi
         v_jump_increment_counter
 
         OFFSET=$(get_process_mem_offset $(read_from_address ${GLOBAL_CURRENT_PID_INFO_ADDRESS}))
         NEXT_CMD=$(v_read_from_address ${LOCAL_NEXT_CMD_ADDRESS} )
         NEXT_CMD_VAL=$(v_read_from_address ${NEXT_CMD})
-        if [ "${DEBUG_VJUMP}" = "1" ]; then 
+        if [ "${DEBUG_VJUMP}" = "1" ]; then
             print_process_id
             echo -e "\033[92m$(v_read_from_address ${NEXT_CMD})\033[0m"
         fi

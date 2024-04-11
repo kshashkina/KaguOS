@@ -390,8 +390,10 @@ FUNC:system_load
 
 
         # TODO process priority should be prompted here instead of hardcode in case of more sophisticated scheduling algorithms:
-        # read_input
-        #*VAR_system_load_priority_ADDRESS=${GLOBAL_INPUT_ADDRESS}
+        *GLOBAL_DISPLAY_ADDRESS="Enter desired priority - smaller value is higher priority:"
+        display_success
+        read_input
+        *VAR_system_load_priority_ADDRESS=*GLOBAL_INPUT_ADDRESS
         # TODO_END
 
         # Let's memorize the first address of text segment
@@ -440,7 +442,26 @@ FUNC:system_load
         *VAR_system_load_temp_var_ADDRESS="FILE"
         cpu_execute "${CPU_CONCAT_SPACES_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_system_load_temp_var_ADDRESS}
         cpu_execute "${CPU_CONCAT_SPACES_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_system_load_file_name_ADDRESS}
+        var process_data
+        *VAR_process_data_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
+        # GROUP <group> :
+        *VAR_system_load_temp_var_ADDRESS="GROUP"
+        var separator
+        var group_name
+        *VAR_separator_ADDRESS="50"
+        *VAR_group_name_ADDRESS="low"
+        cpu_execute "${CPU_LESS_THAN_EQUAL_CMD}" ${VAR_system_load_priority_ADDRESS} ${VAR_separator_ADDRESS}
+
+        if *GLOBAL_COMPARE_RES_ADDRESS=="1"
+            *VAR_group_name_ADDRESS="top"
+        fi
+
+        var group_data
+        cpu_execute "${CPU_CONCAT_SPACES_CMD}" ${VAR_system_load_temp_var_ADDRESS} ${VAR_group_name_ADDRESS}
+        *VAR_group_data_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+        cpu_execute "${CPU_CONCAT_SPACES_CMD}" ${VAR_process_data_ADDRESS} ${VAR_group_data_ADDRESS}
         copy_from_to_address ${GLOBAL_OUTPUT_ADDRESS} $(read_from_address ${VAR_system_load_pid_info_line_ADDRESS})
 
         # Now let's increase counter and hepler variables to be used for the next process
@@ -495,6 +516,60 @@ FUNC:system_load
     return "0"
 
 
+FUNC:get_highest_priority
+    var highest_info
+    var process_data
+    var current_priority
+    var highest_priority
+    var process_counter
+    var highest_priority_value
+
+    var priority_column_number
+    *VAR_priority_column_number_ADDRESS="4"
+
+    *VAR_highest_priority_ADDRESS="0"
+    *VAR_process_counter_ADDRESS="${GLOBAL_SCHED_PID_INFO_START_ADDRESS}"
+
+    LABEL:get_highest_priority_loop
+        if *VAR_process_counter_ADDRESS=="${GLOBAL_SCHED_PID_INFO_END_ADDRESS}"
+            jump_to ${LABEL_get_highest_priority_loop_end}
+        fi
+
+        copy_from_to_address "$(read_from_address ${VAR_process_counter_ADDRESS})" ${VAR_process_data_ADDRESS}
+        cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_process_data_ADDRESS} ${VAR_priority_column_number_ADDRESS}
+        if *GLOBAL_OUTPUT_ADDRESS==""
+            jump_to ${LABEL_get_highest_priority_loop_end}
+        fi
+
+        *VAR_current_priority_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+        # If no highest priority found yet
+        if *VAR_highest_priority_ADDRESS=="0"
+            *VAR_highest_priority_ADDRESS=*VAR_current_priority_ADDRESS
+            *VAR_highest_priority_value_ADDRESS=*VAR_process_counter_ADDRESS
+            *VAR_highest_info_ADDRESS=*VAR_process_data_ADDRESS
+            *VAR_process_counter_ADDRESS++   # Move to next process
+            jump_to ${LABEL_get_highest_priority_loop}
+        fi
+
+        # Compare current priority with highest
+        cpu_execute "${CPU_LESS_THAN_CMD}" ${VAR_current_priority_ADDRESS} ${VAR_highest_priority_ADDRESS}
+
+        # If current priority is higher
+        if *GLOBAL_COMPARE_RES_ADDRESS=="1"
+            *VAR_highest_priority_ADDRESS=*VAR_current_priority_ADDRESS
+            *VAR_highest_priority_value_ADDRESS=*VAR_process_counter_ADDRESS
+            *VAR_highest_info_ADDRESS=*VAR_process_data_ADDRESS
+        fi
+
+        *VAR_process_counter_ADDRESS++
+
+        jump_to ${LABEL_get_highest_priority_loop}
+        LABEL:get_highest_priority_loop_end
+            return *VAR_highest_priority_value_ADDRESS
+
+
+
 # Let's go through the loaded programs and execute them
 FUNC:system_sched
     var system_sched_process_pid_info_column
@@ -512,8 +587,35 @@ FUNC:system_sched
     var system_sched_process_counter
 
     var system_sched_active_process_count
+    var highest_priority_value
+
+    var process_status
+    var process_info
 
 # SCHEDULER:
+    call_func get_highest_priority
+    *VAR_highest_priority_value_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    copy_from_to_address "$(read_from_address ${VAR_highest_priority_value_ADDRESS})" ${VAR_process_info_ADDRESS}
+
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_process_info_ADDRESS} ${VAR_system_sched_process_status_column_ADDRESS}
+    *VAR_process_status_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    if *VAR_process_status_ADDRESS!="ready"
+        *GLOBAL_SCHED_COUNTER_ADDRESS="0"
+        return "0"
+    fi
+
+    if *VAR_process_status_ADDRESS=="terminated"
+        *GLOBAL_SCHED_COUNTER_ADDRESS="0"
+        return "0"
+    fi
+
+    *GLOBAL_CURRENT_PID_INFO_ADDRESS=*VAR_highest_priority_value_ADDRESS
+
+    *GLOBAL_SCHED_COUNTER_ADDRESS="100"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_process_info_ADDRESS} ${VAR_system_sched_process_pid_column_ADDRESS}
+    *GLOBAL_SCHED_PID_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
     # TODO scheduler logic should be placed here
     LABEL:system_sched_main_loop
@@ -530,6 +632,9 @@ FUNC:system_sched
                 jump_to ${LABEL_system_sched_process_loop_continue}
             fi
 
+            cpu_execute "${CPU_EQUAL_CMD}" ${VAR_system_sched_process_counter_ADDRESS} ${VAR_highest_priority_value_ADDRESS}
+            jump_if ${LABEL_system_sched_process_loop_continue}
+
             cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_system_sched_cur_proc_info_ADDRESS} ${VAR_system_sched_process_status_column_ADDRESS}
             *VAR_system_sched_cur_status_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
@@ -544,7 +649,16 @@ FUNC:system_sched
 
             *VAR_system_sched_active_process_count_ADDRESS++
             *GLOBAL_CURRENT_PID_INFO_ADDRESS=*VAR_system_sched_process_counter_ADDRESS
-            *GLOBAL_SCHED_COUNTER_ADDRESS="5"
+
+            var group_column_number
+            *VAR_group_column_number_ADDRESS="12"
+            cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_system_sched_cur_proc_info_ADDRESS} ${VAR_group_column_number_ADDRESS}
+            if *GLOBAL_OUTPUT_ADDRESS=="low"
+                *GLOBAL_SCHED_COUNTER_ADDRESS="4"
+            else
+                *GLOBAL_SCHED_COUNTER_ADDRESS="8"
+            fi
+
             cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_system_sched_cur_proc_info_ADDRESS} ${VAR_system_sched_process_pid_column_ADDRESS}
             *GLOBAL_SCHED_PID_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
@@ -582,7 +696,7 @@ FUNC:system_sched
         #     if *VAR_system_sched_process_counter_ADDRESS=="${GLOBAL_SCHED_PID_INFO_END_ADDRESS}"
         #         jump_to ${LABEL_system_sched_process_loop_debug_end}
         #     fi
-            
+
         #     *VAR_system_sched_process_counter_ADDRESS++
         #     jump_to ${LABEL_system_sched_process_loop_debug}
         # LABEL:system_sched_process_loop_debug_end
