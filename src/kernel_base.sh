@@ -548,7 +548,7 @@ FUNC:get_highest_priority
             *VAR_highest_priority_ADDRESS=*VAR_current_priority_ADDRESS
             *VAR_highest_priority_value_ADDRESS=*VAR_process_counter_ADDRESS
             *VAR_highest_info_ADDRESS=*VAR_process_data_ADDRESS
-            *VAR_process_counter_ADDRESS++   # Move to next process
+            *VAR_process_counter_ADDRESS++
             jump_to ${LABEL_get_highest_priority_loop}
         fi
 
